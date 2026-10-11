@@ -1,0 +1,820 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>RPG - Quest de Estudos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:dark;box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#0f0f1b;--s1:#1a1c2e;--s2:#252945;--bd:#3f4870;--tx:#f4f4f4;--dim:#9ca3c9;
+  --ac:#fcd34d;--ac-dark:#b45309;--hp:#ef4444;--xp:#10b981;--mana:#3b82f6;
+  --pixel-shadow: 3px 3px 0px #05050a;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);image-rendering:pixelated}
+*,*::before,*::after{box-sizing:inherit}
+body{
+  margin:0;background:var(--bg);color:var(--tx);
+  font:18px/1.4 'VT323',monospace;
+  background-image: 
+    radial-gradient(#20243d 1px, transparent 1px),
+    linear-gradient(to bottom, #0e0f1a, #161829);
+  background-size: 16px 16px, 100% 100%;
+  min-height:100vh;
+}
+[hidden]{display:none!important}
+.wrap{max-width:760px;margin:0 auto;padding:24px 16px 64px;display:grid;gap:16px}
+
+/* HUD RPG */
+header{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:var(--s1);border:3px solid var(--bd);box-shadow:var(--pixel-shadow);
+  padding:14px 16px;flex-wrap:wrap;
+}
+.header-info{display:flex;flex-direction:column;gap:4px}
+h1{margin:0;font-size:16px;font-family:'Press Start 2P',cursive;color:var(--ac);letter-spacing:1px;text-shadow:2px 2px #000}
+#pt{margin:0;color:var(--dim);font-size:18px}
+.hud-stats{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#pct{font-size:15px;font-family:'Press Start 2P',cursive;color:var(--xp);text-shadow:2px 2px #000}
+
+/* Barra de XP */
+.bar-container{display:flex;flex-direction:column;gap:4px}
+.bar-label{font-family:'Press Start 2P',cursive;font-size:9px;color:var(--dim);display:flex;justify-content:space-between}
+.bar{
+  height:18px;border:3px solid #000;background:#111;
+  box-shadow:inset 0 2px 0 rgba(0,0,0,0.6);position:relative;
+}
+.bar i{
+  display:block;height:100%;width:0;
+  background:linear-gradient(90deg, #059669, var(--xp));
+  box-shadow:inset 0 3px 0 rgba(255,255,255,0.4);
+  transition:width .4s steps(20);
+}
+
+/* Botoes */
+button,input,select{font:inherit;color:inherit}
+.ghost,.sec,.pri{
+  border:3px solid #000;cursor:pointer;
+  box-shadow:var(--pixel-shadow);
+  transition:transform 0.05s ease;
+  font-family:'Press Start 2P',cursive;font-size:10px;text-transform:uppercase;
+}
+.ghost,.sec{background:var(--s2);color:var(--tx);padding:10px 14px}
+.ghost:hover,.sec:hover{background:#353b61;filter:brightness(1.1)}
+.pri{
+  background:var(--ac);color:#0f0f1b;padding:12px 18px;
+  box-shadow:3px 3px 0px #78350f, inset 0 2px 0 rgba(255,255,255,0.6);
+}
+.pri:hover{filter:brightness(1.1)}
+.ghost:active,.sec:active,.pri:active{transform:translate(2px, 2px);box-shadow:1px 1px 0 #000}
+
+/* Abas */
+.seg{display:flex;gap:8px;background:none;border:none;padding:0}
+.tab{
+  flex:1;background:var(--s1);border:3px solid var(--bd);padding:10px 6px;
+  cursor:pointer;color:var(--dim);font-family:'Press Start 2P',cursive;font-size:9px;
+  box-shadow:var(--pixel-shadow);text-align:center;
+}
+.tab.on{
+  background:var(--s2);border-color:var(--ac);color:var(--ac);
+  box-shadow:inset 0 -3px 0 var(--ac);
+}
+.tab small{display:block;margin-top:6px;font-size:8px;color:#fff}
+
+/* Painel */
+.card{
+  background:var(--s1);border:3px solid var(--bd);box-shadow:var(--pixel-shadow);
+  padding:14px;display:grid;gap:12px;
+}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px}
+.chip{
+  flex:none;display:flex;align-items:center;gap:6px;background:var(--s2);
+  border:2px solid var(--bd);padding:4px 10px;cursor:pointer;color:var(--dim);
+  font-size:15px;white-space:nowrap;box-shadow:1px 1px 0 #000;
+}
+.chip i{width:10px;height:10px;display:inline-block;border:1px solid #000}
+.chip.on{background:#2a325a;border-color:var(--ac);color:var(--ac)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row.c{justify-content:center}
+input,select{
+  background:var(--s2);border:2px solid var(--bd);padding:8px 12px;
+  color:var(--tx);box-shadow:inset 2px 2px 0 rgba(0,0,0,0.5);font-size:18px;
+}
+input{flex:1 1 160px}
+
+/* Quests */
+ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.it{
+  display:flex;align-items:center;gap:12px;background:var(--s1);
+  border:2px solid var(--bd);box-shadow:var(--pixel-shadow);padding:10px 14px;
+  cursor:pointer;user-select:none;
+}
+.it:hover{border-color:var(--ac);background:#22263d}
+.bx{
+  flex:none;width:24px;height:24px;border:2px solid #5a6491;background:#0d0e17;
+  display:grid;place-items:center;font-size:14px;box-shadow:inset 1px 1px 0 #000;
+}
+.it.d{opacity:0.6;background:#131522;border-color:#2a2e47}
+.it.d .bx{background:var(--xp);border-color:#065f46;color:#000}
+.tx{flex:1;font-size:20px;letter-spacing:0.5px}
+.tx small{
+  display:inline-block;font-size:14px;margin-left:8px;padding:1px 6px;
+  background:#262b47;border:1px solid var(--bd);color:var(--ac);
+}
+.it.d .tx{text-decoration:line-through;color:var(--dim)}
+.x{
+  background:none;border:none;color:var(--hp);cursor:pointer;opacity:0.4;
+  padding:4px 8px;font-family:'Press Start 2P',cursive;font-size:10px;
+}
+.it:hover .x,.x:focus-visible,.x[data-arm="1"]{opacity:1}
+.x:hover{transform:scale(1.2)}
+.empty{text-align:center;color:var(--dim);padding:32px;font-size:22px}
+.warn{color:#f59e0b;font-size:16px;text-align:center}
+
+/* Modais */
+.ov{position:fixed;inset:0;background:rgba(5,6,12,.85);display:grid;place-items:center;padding:16px;z-index:9}
+.sheet{
+  background:var(--s1);border:4px solid var(--ac);box-shadow:0 0 0 4px #000, 6px 6px 0px rgba(0,0,0,0.8);
+  padding:24px;max-width:500px;width:100%;display:grid;gap:16px;text-align:center;
+}
+.sheet p{margin:0;color:var(--dim);font-size:18px}
+#ln{
+  font-size:24px;color:#fff;min-height:76px;display:grid;place-items:center;
+  background:var(--s2);border:2px dashed var(--bd);padding:10px;text-shadow:1px 1px 0 #000;
+}
+textarea{
+  width:100%;height:140px;font:16px 'VT323',monospace;background:var(--s2);
+  color:var(--tx);border:2px solid var(--bd);padding:10px;
+}
+.toast{
+  position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom,0px));
+  transform:translateX(-50%);background:#000;border:2px solid var(--ac);
+  color:var(--ac);font-family:'Press Start 2P',cursive;font-size:10px;padding:10px 18px;
+  z-index:20;box-shadow:var(--pixel-shadow);animation:up 1.3s forwards;
+}
+@keyframes up{to{transform:translate(-50%,-20px);opacity:0}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body>
+<div class="wrap">
+ <header>
+  <div class="header-info">
+    <h1>⚔️ QUEST DE ESTUDOS</h1>
+    <p id="pt">⚡ Carregando status...</p>
+  </div>
+  <div class="hud-stats">
+    <span id="pct">0%</span>
+    <button class="ghost" id="bkcld">☁️ CLOUD</button>
+    <button class="ghost" id="bkb">💾 SAVE</button>
+  </div>
+ </header>
+
+ <div class="bar-container">
+   <div class="bar-label"><span>EXPERIÊNCIA (XP)</span><span>LEVEL UP</span></div>
+   <div class="bar"><i id="pf"></i></div>
+ </div>
+
+ <div class="warn" id="warn" hidden>⚠️ O navegador bloqueou o salvamento automático. Use o SAVE!</div>
+ <nav class="seg" id="tabs"></nav>
+ 
+ <div class="row">
+   <button class="pri" id="draw">🎲 Sortear Missão</button>
+   <select id="sc" aria-label="Origem do sorteio">
+     <option value="tab">🗺️ Desta categoria</option>
+     <option value="all">🌐 Todas as Quests</option>
+   </select>
+ </div>
+
+ <section class="card">
+  <div class="chips" id="chips"></div>
+  <div class="row">
+    <input id="q" placeholder="🔍 Buscar quest..." aria-label="Buscar">
+    <select id="st" aria-label="Filtro">
+      <option value="all">📜 Todas as Quests</option>
+      <option value="p">⏳ Pendentes</option>
+      <option value="f">🏆 Concluídas</option>
+    </select>
+  </div>
+  <div class="row">
+    <input id="nt" placeholder="⚔️ Nova missão nesta categoria..." aria-label="Novo item">
+    <select id="na" aria-label="Área"></select>
+    <button class="sec" id="add">➕ Inserir</button>
+  </div>
+ </section>
+
+ <ul id="list"></ul>
+</div>
+
+<!-- Modal Roleta -->
+<div class="ov" id="loot" hidden><div class="sheet">
+ <p id="la">🎲 ROLETA DE QUESTS</p>
+ <div id="ln"></div>
+ <div class="row c" id="lb">
+   <button class="pri" id="done">⚔️ Concluir Quest (+XP)</button>
+   <button class="sec" id="again">🔄 Rolar Novamente</button>
+ </div>
+ <div><button class="ghost" id="close">❌ Fechar</button></div>
+</div></div>
+
+<!-- Modal Save Local -->
+<div class="ov" id="bk" hidden><div class="sheet">
+ <h2 style="margin:0;font-size:14px;font-family:'Press Start 2P',cursive;color:var(--ac)">💾 SAVE / LOAD GAME</h2>
+ <p>Copie o texto para guardar ou cole um backup para restaurar:</p>
+ <textarea id="bkt" spellcheck="false"></textarea>
+ <div class="row c">
+   <button class="sec" id="bkc">📋 Copiar Save</button>
+   <button class="pri" id="bkr">📥 Restaurar Save</button>
+   <button class="ghost" id="bkx">Voltar</button>
+ </div>
+</div></div>
+
+<!-- Modal GitHub Cloud Sync -->
+<div class="ov" id="cld_modal" hidden><div class="sheet">
+ <h2 style="margin:0;font-size:14px;font-family:'Press Start 2P',cursive;color:var(--ac)">☁️ GITHUB CLOUD SYNC</h2>
+ <p style="font-size:15px;line-height:1.2">Sincronize seu progresso na sua conta do GitHub via Gist privado.</p>
+ <div style="display:grid;gap:8px;text-align:left">
+   <label style="font-size:14px">GitHub Token (PAT com escopo 'gist'):</label>
+   <input type="password" id="gh_token" placeholder="ghp_xxxxxxxxxxxx">
+   <label style="font-size:14px">Gist ID (gerado automaticamente após 1º upload):</label>
+   <input id="gh_gist_id" placeholder="(vazio para criar novo)">
+ </div>
+ <div class="row c" style="margin-top:6px">
+   <button class="pri" id="gh_push">⬆️ Enviar Nuvem</button>
+   <button class="sec" id="gh_pull">⬇️ Baixar Nuvem</button>
+ </div>
+ <div class="row c">
+   <button class="ghost" id="gh_close">Fechar</button>
+ </div>
+</div></div>
+
+<script>
+const DATA = {
+  "Clínica Médica": [
+    "Avaliação Global do Hemograma","Anemias Hipoproliferativas I","Anemias Hipoproliferativas II",
+    "Neurovascular I: AIT e AVCi","Neurovascular II: HSA e AVCh","Sífilis","Dispepsia e DRGE",
+    "Úlcera péptica, H. pylori, Gastrite Atrófica e Dispepsia Funcional",
+    "Introdução às Artrites e Artrite Reumatoide (AR)","Espondiloartrites",
+    "Artrites Microcristalinas (Gota e CPPD)","Osteoartrite","Fibromialgia",
+    "Dor Torácica Coronariana","Dor Torácica Não Coronariana","Gasometria Arterial",
+    "Distúrbios do Sódio","Distúrbios do Potássio","Reações Alérgicas","Antibióticos",
+    "Anemias Hemolíticas","Oncologia: emergências e cuidados paliativos","Cefaleias",
+    "Avaliação Geriátrica Ampla","Grandes Síndromes Geriátricas",
+    "Avaliação de Enzimas Hepáticas, Doença hepática esteatótica metabólica (DHEM) e Hepatite alcóolica",
+    "Doenças hepáticas: CBP, CEP, HAI e Doença de Wilson","Coagulação e Hemostasia","Hemoterapia",
+    "Cirrose Hepática I","Cirrose Hepática II","Pneumonia: Adquirida na Comunidade","Derrame Pleural",
+    "HAS: Ambulatorial e Emergências","Insuficiência Cardíaca","Espirometria e Asma",
+    "Doença Pulmonar Obstrutiva Crônica (DPOC)","BLS e ACLS",
+    "Diabetes: Classificação, Diagnóstico e Meta Terapêutica","Diabetes: Tratamento",
+    "Emergências Hiperglicêmicas (CAD e EHH)","Hiperglicemia Hospitalar",
+    "Síndrome Metabólica e Obesidade","Dislipidemias","Doença Hepática Esteatótica Metabólica (DHEM)",
+    "Vasculites","Tuberculose: clínica e diagnóstico","Tuberculose: tratamento",
+    "Meningites & Encefalites","Doenças Neuromusculares e Parkinson","Taquiarritmias - Cardiologia",
+    "Bradiarritimias","Síncope","Doenças Valvares",
+    "Via aérea, intubação e Ventilação Não Invasiva (VNI)",
+    "Síndrome do Desconforto Respiratório Agudo (SDRA)","Ventilação Mecânica","Infecções Nosocomiais",
+    "Choque","Drogas Vasoativas e Sedoanalgesia","Vacinação","Injúria Renal",
+    "Diarreia Agudas e Colite Pseudomembranosa","Diarreias Crônicas",
+    "Doença Inflamatória Intestinal (DII)","Doenças Negligenciadas","Lúpus Eritematoso Sistêmico",
+    "Osteoporose","Esclerose Sistêmica","Doença de Sjögren","Miopatias Autoimunes Sistêmicas",
+    "Glomerulopatias","Intoxicações Exógenas","HIV e Doenças Oportunistas",
+    "Fisiologia da Tireoide e Hipotireoidismo","Hipertireoidismo e Tireoidite","Epilepsia",
+    "Esclerose Múltipla (EM) e Neuromielite óptica","Neuromielite Óptica (NMO)",
+    "Esclerose Múltipla (EM)","Tromboembolismo Pulmonar","Distúrbios do Sono",
+    "Doença Pulmonar Intersticial (DPI)","Nódulo Pulmonar","Adrenal","Síndrome de Cushing",
+    "Disfagia, Esofagite Eosinofílica e Acalasias","Infecção do Trato Urinário (ITU)",
+    "Outros Distúrbios Hidroeletrolíticos (Cálcio, Fósforo e Magnésio)","Doença Renal Crônica",
+    "Depressão e Delirium no Idoso","Insuficiência Cognitiva: Demências",
+    "Doenças Virais e Pandêmicas","Arboviroses","Icterícias febris e Febre Maculosa",
+    "Hepatites Virais","Hiperaldosteronismo Primário","Feocromocitoma","Prolactinomas",
+    "Oncohematologia","Dermatologia","Otologia I","Otologia II",
+    "Oftalmologia para o Generalista - parte I","Rinologia","Bucofaringolaringologia I",
+    "Bucofaringolaringologia II","Oftalmologia para o Generalista - parte II"
+  ],
+  "Cirurgia": [
+    "Introdução ao Extensivo e Como Acertar Questões de Prova",
+    "Introdução ao Trauma e Atendimento Inicial","Trauma: Vias Aéreas",
+    "Choque e Ressuscitação Hemostática","Trauma: Medidas Auxiliares, FAST e demais avaliações",
+    "Trauma: Populações especiais","Trauma de Tórax","Trauma Abdominal","Trauma Urológico",
+    "Trauma de Pelve","Trauma Cranioencefálico","Trauma Raquimedular","Trauma Musculoesquelético",
+    "Trauma de Pescoço","Trauma: Encerramento","Queimaduras","Escroto Agudo","Priapismo",
+    "Abdome Agudo: Introdução","Apendicite Aguda","Cicatrização e Lesões por Pressão",
+    "Fios de Sutura","Anestésicos Locais","Urgências da Vesícula Biliar","Câncer de Esôfago",
+    "Pancreatite Aguda","Diverticulite Aguda","Abscesso Hepático","Disfagia e Acalasia",
+    "Hernias de Hiato","Abdome Agudo Obstrutivo",
+    "Abdome Agudo Perfurativo, Vascular e Hemorrágico","Câncer de Estômago",
+    "Anatomia da Parede Abdominal e Hérnia Inguinal","Hernioplastia Inguinal",
+    "Outras Neoplasias Gástricas","Enxertos e Retalhos","Síndrome Compartimental Intra-Abdominal",
+    "Hérnias Incisionais e Fechamento de Parede","Outras Hérnias","Urgências endoscópicas",
+    "Câncer de Estômago (Diamante)","Pré-Operatório","Uro-Oncologia","Cirurgia Bariátrica",
+    "REMIT e pós-operatório","Perioperatório: Complicações gerais","Fraturas de face",
+    "Paralisia facial","Hiperplasia prostática benigna","Cirurgia Geral: Respiro e próximos passos",
+    "Câncer Colorretal e Síndromes Associadas","Doenças Orificiais e CEC de Canal Anal",
+    "Doenças da Vesícula Biliar","Fígado para perdidos","Nódulos hepáticos benignos",
+    "Ferimento descolante","Litíase Renal: Pronto-Socorro e Tratamento Cirúrgico",
+    "Carcinoma hepatocelular","Aneurisma de Aorta",
+    "Metástases hepáticas de câncer colorretal",
+    "Adenocarcinoma de pâncreas e tumores periampulares","Fígado e VB: Quiz",
+    "Síndrome de Fournier","Ortopedia","Trombose venosa profunda",
+    "Cirurgia Torácica: Pneumotórax","Oncocirurgia Geral","Isquemia de membros inferiores",
+    "Cirurgia: Resumão/Encerramento","Neoplasias Císticas Pancreáticas","Pancreatite Crônica",
+    "Trauma Vascular","Estenose Carotídea","Câncer de Pulmão","Videolaparoscopia",
+    "Eletrocirurgia","Pâncreas e vias biliares: Tumores Neuroendócrinos",
+    "Nutrição perioperatória","Diagnósticos diferenciais das massas cervicais",
+    "Insuficiência Venosa Crônica","Cirurgia Vascular: Síndromes Compressivas",
+    "Tumores do Intestino Delgado","Doenças cirúrgicas do Baço","CEC de Cabeça e Pescoço",
+    "Doenças Traqueais","Bronquiectasias e Hemoptise","Cisto pilonidal",
+    "Anomalias Congênitas em cabeça e pescoço","Mediastino","Endoscopia",
+    "Cabeça e Pescoço: Tireóide","Cabeça e Pescoço: Paratireóide","Neurocirurgia",
+    "Anestesiologia","Cirurgia Cardíaca","Tromboelastograma"
+  ],
+  "Pediatria": [
+    "Aleitamento Materno","Alimentação Infantil","Desenvolvimento Infantil",
+    "Alterações no Neurodesenvolvimento - TEA e TDAH","Febre sem Sinais Localizatórios",
+    "Nefrologia Pediátrica","Doença Renal Crônica e Lesão Renal Aguda",
+    "Miscelânea em Nefropediatria","Alergia Alimentar, Refluxo e Constipação",
+    "Diarreia Crônica e Doenças Funcionais","Violência Contra a Criança e o Adolescente",
+    "Crescimento e Baixa Estatura","Obesidade e Síndrome Metabólica","Puberdade",
+    "Desnutrição e Vitaminas","Politrauma, Afogamento","Queimaduras",
+    "Traumatismo Cranioentecefálico e Hipertensão Intracraniana","Diarreia Aguda",
+    "Infecções de Vias Aéreas Superiores (IVAS)","Autoinflamatórias","Pneumonias",
+    "Bronquiolite e Coqueluche","COVID","Reanimação Neonatal","Infecções Congênitas",
+    "Icterícia e Colestase Neonatal","Dermatite Atópica e Lesões Benignas do Recém-Nascido",
+    "Dermatoses e Infecções de Partes Moles","Anemia Falciforme",
+    "Anemia Ferropriva e Talassemia","Hemostasia e Distúrbios Hemorrágicos","Genética",
+    "Suporte Avançado de Vida em Pediatria (PALS)","Cardiopatias Congênitas",
+    "Hipertensão Arterial Sistêmica (HAS)","Miocardite, Síncope, Insuficiência Cardíaca",
+    "Arboviroses","Doenças Exantemáticas","Cetoacidose Diabética (CAD)",
+    "Triagens Neonatais","Distúrbios Metabólicos Neonatais","Peçonhentos, Raiva e Tétano",
+    "Ingestão e Aspiração de Corpo Estranho e BRUE","Convulsão na Emergência e Convulsão Febril",
+    "Tuberculose","Pediatria Geral","Kawasaki, Vasculite por Iga e Febre Reumática",
+    "Artrite Idiopática Juvenil","Meningite e Encefalite","Vacinação","HIV",
+    "Ortopedia Pediátrica","Osteomielite e Artrite Séptica",
+    "Hiperplasia Adrenal Congênita (HAC)","Hipotireoidismo",
+    "Diferenças no Desenvolvimento Sexual","Nutrologia em Pediatria","Asma",
+    "Fibrose Cística e Diferenciais","Imunodeficiências para o Pediatra","Sepse Neonatal",
+    "Desconforto Respiratório Neonatal","Outras Doenças Neonatais","Nutrição do Pré-Termo",
+    "Parasitoses Intestinais","Neoplasias Pediátricas","Infecção de Trato Urinário (ITU)",
+    "Sedoanalgesia e Sequência Rápida de Intubação","Sepse Pediátrica",
+    "Choque e Drogas Vasoativas","Cirurgia Pediátrica no PS","Uropediatria e Hérnias",
+    "Malformações Congênitas","Medicina do Adolescente","Ética em Pediatria",
+    "Psiquiatria da Infância e Adolescência","Epilepsias na Infância",
+    "Otites, Perda Auditiva, Rinossinusites e Epistaxe",
+    "Rinites e Afecções da Laringe e Faringe","Oftalmopediatria",
+    "Malformações do Sistema Nervoso","Doenças Neuromusculares na Infância"
+  ],
+  "Ginecologia e Obstetrícia": [
+    "Modificações do Organismo Materno","Assistência ao Pré-Natal",
+    "Ultrassonografia em Obstetrícia","Anatomia Pélvica Feminina",
+    "Embriologia do Sistema Genital Feminino","Malformações Mullerianas",
+    "Corrimentos Vaginais","Doença Inflamatória Pélvica Aguda","Úlceras Genitais",
+    "Assistência ao Parto","Sofrimento Fetal Agudo","Fisiologia Menstrual",
+    "Amenorreia Primária","Esteroidogênese","Amenorreia Secundária","Hiperprolactinemia",
+    "Síndrome dos Ovários Policísticos","Infecções e Gravidez",
+    "Rotura Prematura de Membranas Ovulares","Violência Sexual",
+    "Interrupção Legal da Gestação","Abortamento","Gestação Ectópica",
+    "Doença Trofoblástica Gestacional","Placenta Prévia",
+    "Descolamento Prematuro de Placenta",
+    "Outros Sangramentos de Segunda Metade da Gestação",
+    "Síndromes Hipertensivas na Gestação","Sangramento Uterino Anormal",
+    "Diabetes na Gestação","Infertilidade","Endometriose",
+    "Propedêutica em Uroginecologia","Incontinência Urinária","Prolapso Genital",
+    "Avaliação de Vitalidade Fetal","Restrição de Crescimento Intrauterino",
+    "Sofrimento Fetal Crônico","Gemelaridade","Cardiopatias na Gravidez","Anticoncepção",
+    "Propedêutica Mamária","Principais Sintomas em Mastologia",
+    "Classificação das Lesões Benignas","Trabalho de Parto Prematuro",
+    "Colo Curto e Incompetência Istmocervical","Hemorragia pós parto","Puerpério",
+    "Câncer de Colo de Útero - Rastreamento",
+    "Câncer de Colo de Útero - Diagnóstico e Tratamento","Doenças da Vulva e da Vagina",
+    "Câncer de Mama - Rastreamento","Câncer de Mama - Fatores de Risco e CDIS",
+    "Câncer de Mama - Doença Invasiva","Síndrome Climatérica","Terapia Hormonal",
+    "Tumores Anexiais","Câncer de Ovário","Hiperplasia Endometrial",
+    "Câncer de Endométrio","Outras Intercorrências Clínicas na Gestação",
+    "Técnicas de Reprodução Assistida","Cuidado à Saúde LGBTQIAPN+",
+    "Cirurgia Ginecológica: Princípios e Complicações",
+    "Transtornos Psiquiátricos na Gestação e Pós parto","Medicina Fetal",
+    "Trombofilias na Gestação e Puerpério","Doença Hemolítica Perinatal",
+    "Outras Urgências Ginecológicas"
+  ],
+  "Preventiva": [
+    "Boas Vindas à Preventiva","Níveis de Prevenção","Indicadores de Saúde",
+    "Testes Diagnósticos","Assistência ao Pré-Natal na APS",
+    "Determinação Social do Processo Saúde-Doença e Promoção de Saúde",
+    "Redes de Atenção à Saúde e Níveis de Atenção","Atenção Primária à Saúde",
+    "Classificação dos Estudos Epidemiológicos","Associação x Causalidade",
+    "Rastreamentos","Estudos Transversais","Estudos Longitudinais: Coorte e Caso-Controle",
+    "História e Princípios do SUS","Legislação do SUS I: Leis Orgânicas da Saúde",
+    "Legislação do SUS II: NOBs, NOAS e Pacto pela Saúde","Tabagismo",
+    "Medidas de Associação - Exercícios","Legislação do SUS 3: Decreto 7508/11",
+    "Rede de Atenção Psicossocial (RAPS)","Financiamento do SUS e Planejamento em Saúde",
+    "Ensaios Clínicos","Ética em Pesquisa Clínica","Preventiva: a Jornada Continua",
+    "Significância Estatística: Valor-p e Intervalo de Confiança",
+    "Revisão Sistemática e Metanálise","Medicina Baseada em Evidências",
+    "Cardiologia na APS","Diabetes no SUS","Estratégia da Saúde da Família",
+    "Financiamento da APS","Síndrome Depressiva","Síndrome Maníaca",
+    "Ferramentas da APS/ESF","Síndrome Ansiosa","Telessaúde e Publicidade Médica",
+    "Método Clínico Centrado na Pessoa e Comunicação de Notícias Difíceis",
+    "Vigilância em Saúde","Registro de Saúde Orientado por Problemas (ReSOAP)",
+    "Processo Epidêmico","Abordagem Familiar e Comunitária","Acidente de Trabalho",
+    "Síndrome Psicótica","Psicofarmacologia","Pneumoconioses",
+    "Tuberculose e Hanseníase na APS",
+    "Saúde Socioecológica: Saúde Planetária, Saúde Única e Saúde Global",
+    "Declaração de Óbito, Atestados e Laudos",
+    "Atenção à Saúde de Populações Específicas","Ética Médica",
+    "Intoxicações, Perda Auditiva Induzida por Ruído (PAIRO) e Burnout",
+    "Dermatologia na APS","Emergências Psiquiátricas","Violências e Vulnerabilidade",
+    "Saúde Privada, Suplementar e Judicialização em Saúde",
+    "Transtornos alimentares, somatoformes e de personalidade","Saúde do Trabalhador",
+    "Transtornos Relacionados a Substâncias - Álcool","Preventiva: reta final"
+  ]
+};
+
+const CAPITULOS_DATA = {
+  "Aspectos Gerais": [
+    "Abordagem inicial do paciente crítico", "Choque circulatório", "Cefaleias",
+    "Síncope", "Vertigem", "Rebaixamento do nível de consciência",
+    "Dor torácica", "Dispneia", "Dor abdominal aguda", "Lombalgia", "Febre"
+  ],
+  "Medicina Pré-Hospitalar": [
+    "Princípios de medicina pré-hospitalar",
+    "Atuação de profissionais de saúde em incidentes envolvendo múltiplas vítimas e desastres",
+    "Atendimento pré-hospitalar aeromédico", "Introdução à medicina de altitude"
+  ],
+  "Trauma": [
+    "O paciente politraumatizado", "Trauma cranioencefálico",
+    "Trauma de coluna vertebral e trauma raquimedular", "Trauma torácico",
+    "Trauma abdominal", "Trauma de extremidades", "Trauma no paciente idoso",
+    "Trauma na gestação", "Trauma na criança", "Trauma pélvico e pelviperineal",
+    "Atendimento inicial ao paciente queimado", "Afogamento"
+  ],
+  "Acidentes com Animais e Químicos": [
+    "Mordeduras por mamíferos", "Acidentes ofídicos",
+    "Acidentes com artrópodes peçonhentos: aranhas e escorpiões", "Queimaduras químicas",
+    "Outros artrópodes peçonhentos e venenosos", "Acidentes provocados por animais aquáticos"
+  ],
+  "Intervenções e Procedimentos": [
+    "Manejo de via aérea no paciente crítico", "Via aérea difícil", "Acessos vasculares",
+    "Fármacos vasoativos e inotrópicos", "Analgesia e sedação", "Dreno de tórax",
+    "Acesso intraósseo", "Cricotireoidostomia", "Pericardiocentese",
+    "Tamponamento por balão gastroesofágico", "Aspiração de corpo cavernoso",
+    "Cantotomia", "Cesárea de reanimação", "Marca-passos",
+    "Cardioversão elétrica e desfibrilação", "Corpo estranho",
+    "Cuidados paliativos", "Comunicação de más notícias", "Oxigenoterapia",
+    "Intubação no paciente acordado", "Suturas", "Paracentese", "Fluidoterapia"
+  ],
+  "Emergências Neurológicas e Psiquiátricas": [
+    "Acidente vascular cerebral isquêmico", "Acidente vascular cerebral hemorrágico",
+    "Tentativa de autoextermínio", "Agitação psicomotora e delirium",
+    "Crise convulsiva e estado de mal epilético", "Paralisia facial",
+    "Hipertensão intracraniana", "Paralisias flácidas agudas", "Meningite e encefalites",
+    "Morte encefálica e manejo do potencial doador de órgãos", "Emergências psiquiátricas",
+    "Tomografia computadorizada de crânio e da coluna"
+  ],
+  "Emergências Cardiovasculares": [
+    "Ressuscitação cardiopulmonar", "Emergências hipertensivas", "Insuficiência cardíaca aguda",
+    "Choque cardiogênico", "Taquiarritmias", "Bradicardias", "Oclusão arterial aguda",
+    "Síndromes aórticas agudas", "Trombose venosa profunda", "Embolia pulmonar",
+    "Miopericardites", "Endocardite infecciosa",
+    "Síndrome coronariana aguda com oclusão coronária aguda",
+    "Síndrome coronariana aguda sem oclusão coronária aguda"
+  ],
+  "Emergências Respiratórias": [
+    "Insuficiência respiratória aguda", "Ventilação não invasiva",
+    "Princípios da ventilação mecânica invasiva", "Asma e doença pulmonar obstrutiva crônica",
+    "Hemoptise", "Hemorragia alveolar", "Pneumotórax", "Pneumonia adquirida na comunidade",
+    "Infecção por covid-19", "Complicações relacionadas à traqueostomia"
+  ],
+  "Emergências Gastrointestinais e Hepáticas": [
+    "Hemorragia digestiva alta", "Hemorragia digestiva baixa", "Pancreatite aguda",
+    "Cirrose descompensada", "Insuficiência hepática aguda", "Diarreia aguda",
+    "Doença diverticular", "Apendicite aguda e colecistite aguda", "Hérnias abdominais"
+  ],
+  "Emergências Genitourinárias": [
+    "Escroto agudo", "Litíase urinária", "Infecção de trato urinário",
+    "Infecções sexualmente transmissíveis"
+  ],
+  "Emergências Ginecológicas e Obstétricas": [
+    "Dor pélvica ginecológica", "Atendimento à pessoa em situação de violência sexual",
+    "Sangramento vaginal na paciente não gestante", "Sangramentos obstétricos",
+    "Síndromes hipertensivas gestacionais", "Trabalho de parto", "Complicações pós-parto",
+    "Medicações na gestação e amamentação"
+  ],
+  "Emergências Endocrinológicas e Metabólicas": [
+    "Emergências hiperglicêmicas", "Hipoglicemia sintomática", "Lesão renal aguda",
+    "Insuficiência adrenal", "Distúrbios do sódio", "Distúrbios do potássio",
+    "Distúrbios ácido-base", "Distúrbios do cálcio, magnésio e fósforo",
+    "Emergências tireoidianas"
+  ],
+  "Emergências Hematológicas e Oncológicas": [
+    "Púrpura trombocitopênica imune", "Distúrbios dos fatores de coagulação",
+    "Neutropenia febril", "Complicações agudas das doenças falciformes",
+    "Síndrome de lise tumoral", "Síndrome de compressão medular", "Leucemias agudas",
+    "Hipercalcemia associada a malignidade", "Transfusões sanguíneas e reações transfusionais",
+    "Manejo da dor oncológica", "Obstrução intestinal maligna"
+  ],
+  "Emergências Infecciosas": [
+    "Influenza", "Sepse", "HIV", "Leptospirose", "Tétano", "Arboviroses",
+    "Tuberculose", "Doenças meningocócicas", "Febre amarela", "Antibioticoterapia",
+    "Raiva", "Botulismo"
+  ],
+  "Emergências Oftalmológicas e Otorrinolaringológicas": [
+    "Emergências em oftalmologia", "Epistaxe", "Otite", "Rinossinusite aguda"
+  ],
+  "Emergências em Dermatologia e Imunologia": [
+    "Síndrome de Steven-Johnson e necrólise epidérmica tóxica",
+    "Erisipela e celulite", "Anafilaxia", "Urticária e eritema multiforme"
+  ],
+  "Emergências Reumatológicas": [
+    "Vasculites", "Artrites"
+  ],
+  "Intoxicação Exógena": [
+    "Abordagem ao paciente com intoxicação aguda", "Álcoois tóxicos", "Paracetamol",
+    "Anti-inflamatórios não esteroidais e ácido acetilsalicílico", "Anticolinesterásicos",
+    "Antidepressivos tricíclicos e inibidores seletivos da recaptação de serotonina",
+    "Anticonvulsivantes", "Drogas cardiovasculares", "Cocaína", "Hidrocarbonetos",
+    "Lítio e antipsicóticos", "Opioides", "Pesticidas", "Hipnóticos sedativos",
+    "Cáusticos", "Outras drogas de abuso", "Ferro e outros metais pesados",
+    "Toxinas inalatórias", "Plantas e cogumelos tóxicos", "Interações farmacológicas"
+  ],
+  "Ultrassonografia para o Emergencista": [
+    "Ultrassonografia à beira do leito das partes moles: celulite, abscesso, corpo estranho e infecção necrosante de partes moles",
+    "Particularidades na ultrassonografia à beira do leito na pediatria",
+    "Bloqueios periféricos guiados ultrassonografia",
+    "Ecocardiograma à beira do leito avançado",
+    "Ultrassonografia à beira do leito em pacientes hemodinamicamente instáveis",
+    "POCUS na trombose venosa profunda", "Acessos vasculares",
+    "Avaliação pulmonar básica",
+    "O uso da ultrassonografia à beira do leito na dissecção de aorta e do aneurisma de aorta abdominal",
+    "Ultrassom da vesícula biliar", "Toracocentese guiada por ultrassonografia"
+  ],
+  "Emergências Pediátricas": [
+    "Febre sem foco infeccioso definido", "Asma aguda grave", "Sepse e choque séptico",
+    "Doença falciforme", "Ressuscitação neonatal", "Crise convulsiva",
+    "Dor abdominal", "Bronquiolite viral aguda", "Cianose",
+    "Suporte básico e avançado de vida em pediatria"
+  ],
+  "Ética, Gestão e Segurança": [
+    "Aspectos éticos no atendimento de emergência", "Protocolos de classificação de risco",
+    "Normatizações e resoluções aplicadas à medicina de emergência no Brasil",
+    "Acreditação no departamento de emergência"
+  ]
+};
+
+const $=s=>document.querySelector(s);
+const CATS=[['cron','🗺️ MAPA','🗺️'],['cap','📜 TOMO','📖'],['pod','🎧 PODCAST','🎧']];
+
+const ALL_AREAS = Array.from(new Set([...Object.keys(DATA), ...Object.keys(CAPITULOS_DATA), 'Geral']));
+
+const AC = {
+  'Clínica Médica':'#4ade80','Cirurgia':'#f87171','Pediatria':'#60a5fa',
+  'Ginecologia e Obstetrícia':'#f472b6','Preventiva':'#a3e635','Geral':'#facc15',
+  'Aspectos Gerais':'#38bdf8','Medicina Pré-Hospitalar':'#fb923c','Trauma':'#f87171',
+  'Acidentes com Animais e Químicos':'#c084fc','Intervenções e Procedimentos':'#34d399',
+  'Emergências Neurológicas e Psiquiátricas':'#818cf8','Emergências Cardiovasculares':'#fb7185',
+  'Emergências Respiratórias':'#67e8f9','Emergências Gastrointestinais e Hepáticas':'#fbbf24',
+  'Emergências Genitourinárias':'#a78bfa','Emergências Ginecológicas e Obstétricas':'#f472b6',
+  'Emergências Endocrinológicas e Metabólicas':'#e879f9','Emergências Hematológicas e Oncológicas':'#f43f5e',
+  'Emergências Infecciosas':'#2dd4bf','Emergências Oftalmológicas e Otorrinolaringológicas':'#fdba74',
+  'Emergências em Dermatologia e Imunologia':'#ec4899','Emergências Reumatológicas':'#c084fc',
+  'Intoxicação Exógena':'#e11d48','Ultrassonografia para o Emergencista':'#22d3ee',
+  'Emergências Pediátricas':'#60a5fa','Ética, Gestão e Segurança':'#94a3b8'
+};
+
+const KEY='estudos-mc-v3';
+let S,cat='cron',area='*',st='all',q='',cur=null,tm;
+const norm=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function toast(m){
+  const d=document.createElement('div');
+  d.className='toast';
+  d.innerHTML=m;
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(),1400);
+}
+function save(){let ok=true;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){ok=false}$('#warn').hidden=ok}
+
+function seed(){
+  S={next:1,items:[]};
+  for(const a in DATA) DATA[a].forEach(t=>S.items.push({id:S.next++,c:'cron',a,t,d:0}));
+  for(const a in CAPITULOS_DATA) CAPITULOS_DATA[a].forEach(t=>S.items.push({id:S.next++,c:'cap',a,t,d:0}));
+  save();
+}
+
+function load(){
+  try{
+    const r=localStorage.getItem(KEY);
+    if(r){
+      const p=JSON.parse(r);
+      if(p&&Array.isArray(p.items)&&p.items.length){
+        S=p;
+        return;
+      }
+    }
+  }catch(e){}
+  seed();
+}
+
+function getAreasForCat(c){
+  if(c==='cap') return Object.keys(CAPITULOS_DATA);
+  if(c==='cron') return Object.keys(DATA);
+  return ALL_AREAS;
+}
+
+function render(){
+ const done=S.items.filter(i=>i.d).length,tot=S.items.length,pc=tot?Math.round(done/tot*100):0;
+ $('#pct').textContent=pc+'% XP';
+ $('#pf').style.width=pc+'%';
+ $('#pt').textContent=`⚔️ Nível ${Math.floor(done/10)+1} · ${done}/${tot} Quests Concluídas`;
+ 
+ $('#tabs').innerHTML=CATS.map(([id,n,ic])=>{
+   const a=S.items.filter(i=>i.c===id);
+   return `<button class="tab${id===cat?' on':''}" data-cat="${id}">${n}<small>${a.filter(i=>i.d).length}/${a.length}</small></button>`;
+ }).join('');
+ 
+ const base=S.items.filter(i=>i.c===cat);
+ const currentCatAreas = getAreasForCat(cat);
+
+ $('#chips').innerHTML=['*',...currentCatAreas].map(a=>{
+   const b=a==='*'?base:base.filter(i=>i.a===a);
+   return `<button class="chip${a===area?' on':''}" data-area="${esc(a)}">${a==='*'?'💎 ':''}${a==='*'?'Todas':esc(a)} (${b.filter(i=>i.d).length}/${b.length})</button>`;
+ }).join('');
+ 
+ const selectAreas = currentCatAreas.length ? currentCatAreas : ALL_AREAS;
+ $('#na').innerHTML=selectAreas.map(a=>`<option value="${esc(a)}">${esc(a)}</option>`).join('');
+ if(area!=='*' && selectAreas.includes(area)) $('#na').value=area;
+
+ const nq=norm(q);
+ const L=base.filter(i=>(area==='*'||i.a===area)&&(st==='all'||(st==='p')===!i.d)&&(!nq||norm(i.t).includes(nq)));
+ 
+ $('#list').innerHTML=L.length?L.map(i=>`
+   <li class="it${i.d?' d':''}" tabindex="0" role="checkbox" aria-checked="${!!i.d}" data-id="${i.id}" style="--ac:${AC[i.a]||'#888'}">
+     <span class="bx">${i.d?'👾':''}</span>
+     <span class="tx">${esc(i.t)}${area==='*'?`<small>${esc(i.a)}</small>`:''}</span>
+     <button class="x" aria-label="Apagar">✖</button>
+   </li>`).join(''):'<li class="empty">Nenhuma quest encontrada nesta masmorra! 🛡️</li>';
+}
+
+function flip(it){
+  it.d=it.d?0:1;
+  save();
+  render();
+  if(it.d) toast('✨ +50 XP! QUEST CONCLUÍDA!');
+  const el=document.querySelector('[data-id="'+it.id+'"]');
+  if(el)el.focus({preventScroll:true});
+}
+
+document.addEventListener('click',e=>{
+ const t=e.target;let b;
+ if(b=t.closest('[data-cat]')){cat=b.dataset.cat;area='*';render();return}
+ if(b=t.closest('[data-area]')){area=b.dataset.area;render();return}
+ const li=t.closest('.it');if(!li)return;
+ const id=+li.dataset.id,x=t.closest('.x');
+ if(x){
+   if(x.dataset.arm){
+     S.items=S.items.filter(i=>i.id!==id);save();render();toast('🗑️ Quest descartada');
+   }else{
+     x.dataset.arm=1;x.textContent='DELETAR?';
+     setTimeout(()=>{x.dataset.arm='';x.textContent='✖'},2500);
+   }
+   return;
+ }
+ flip(S.items.find(i=>i.id===id));
+});
+
+$('#list').addEventListener('keydown',e=>{
+  if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('it')){
+    e.preventDefault();
+    flip(S.items.find(i=>i.id===+e.target.dataset.id));
+  }
+});
+
+$('#q').oninput=e=>{q=e.target.value;render()};
+$('#st').onchange=e=>{st=e.target.value;render()};
+
+function add(){
+  const t=$('#nt').value.trim();if(!t)return;
+  S.items.push({id:S.next++,c:cat,a:$('#na').value,t,d:0});
+  save();$('#nt').value='';render();
+  toast('📜 Nova Quest Adicionada!');
+}
+$('#add').onclick=add;
+$('#nt').onkeydown=e=>{if(e.key==='Enter')add()};
+
+function roll(){
+ const sc=$('#sc').value,P=S.items.filter(i=>(sc==='all'||i.c===cat)&&!i.d&&(area==='*'||i.a===area));
+ if(!P.length){toast('🎉 Todas as Quests foram zeradas!');return false}
+ $('#loot').hidden=false;$('#lb').hidden=true;$('#la').textContent='🎲 SORTEANDO QUEST...';
+ clearInterval(tm);let n=0;
+ tm=setInterval(()=>{
+   const x=P[Math.random()*P.length|0];
+   $('#ln').textContent=x.t;
+   if(++n>14){
+     clearInterval(tm);
+     cur=x;
+     $('#la').textContent='⚔️ '+CATS.find(c=>c[0]===x.c)[1]+' · '+x.a;
+     $('#lb').hidden=false;
+   }
+ },70);
+ return true;
+}
+
+$('#draw').onclick=roll;
+$('#again').onclick=()=>{if(!roll())$('#loot').hidden=true};
+$('#done').onclick=()=>{$('#loot').hidden=true;if(cur&&!cur.d)flip(cur)};
+$('#close').onclick=()=>{clearInterval(tm);$('#loot').hidden=true};
+$('#bkb').onclick=()=>{$('#bkt').value=JSON.stringify(S);$('#bk').hidden=false};
+$('#bkx').onclick=()=>{$('#bk').hidden=true};
+$('#bkc').onclick=async()=>{
+  const t=$('#bkt');t.select();
+  let r=false;
+  try{await navigator.clipboard.writeText(t.value);r=true}catch(e){try{r=document.execCommand('copy')}catch(_){}}
+  toast(r?'📋 Save Copiado!':'Copie com Ctrl+C');
+};
+$('#bkr').onclick=()=>{
+  try{
+    const p=JSON.parse($('#bkt').value);
+    if(!p||!Array.isArray(p.items))throw 0;
+    S={next:Math.max(0,...p.items.map(i=>i.id|0))+1,items:p.items};
+    save();render();$('#bk').hidden=true;toast('💾 Save Restaurado!');
+  }catch(e){toast('❌ Save corrompido ou inválido');}
+};
+
+/* Sincronização via GitHub Gist */
+const GH_TOKEN_KEY = 'gh_sync_token';
+const GH_GIST_KEY = 'gh_sync_gist_id';
+
+$('#bkcld').onclick = () => {
+  $('#gh_token').value = localStorage.getItem(GH_TOKEN_KEY) || '';
+  $('#gh_gist_id').value = localStorage.getItem(GH_GIST_KEY) || '';
+  $('#cld_modal').hidden = false;
+};
+$('#gh_close').onclick = () => { $('#cld_modal').hidden = true; };
+
+$('#gh_push').onclick = async () => {
+  const token = $('#gh_token').value.trim();
+  let gistId = $('#gh_gist_id').value.trim();
+  if(!token) return toast('⚠️ Insira seu GitHub Token!');
+  localStorage.setItem(GH_TOKEN_KEY, token);
+
+  const payload = {
+    description: "Savegame - Quest de Estudos RPG",
+    public: false,
+    files: {
+      "quest_save.json": { content: JSON.stringify(S) }
+    }
+  };
+
+  try {
+    toast('☁️ Enviando save...');
+    const url = gistId ? `https://api.github.com/gists/${gistId}` : `https://api.github.com/gists`;
+    const res = await fetch(url, {
+      method: gistId ? 'PATCH' : 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github+json'
+      },
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok) throw new Error();
+    const data = await res.json();
+    gistId = data.id;
+    $('#gh_gist_id').value = gistId;
+    localStorage.setItem(GH_GIST_KEY, gistId);
+    toast('✅ Salvo no GitHub Cloud!');
+  } catch(e) {
+    toast('❌ Falha ao enviar para o GitHub');
+  }
+};
+
+$('#gh_pull').onclick = async () => {
+  const token = $('#gh_token').value.trim();
+  const gistId = $('#gh_gist_id').value.trim();
+  if(!token || !gistId) return toast('⚠️ Preencha Token e Gist ID!');
+  localStorage.setItem(GH_TOKEN_KEY, token);
+  localStorage.setItem(GH_GIST_KEY, gistId);
+
+  try {
+    toast('☁️ Baixando save...');
+    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github+json'
+      }
+    });
+    if(!res.ok) throw new Error();
+    const data = await res.json();
+    const content = data.files['quest_save.json']?.content;
+    if(!content) throw new Error();
+    const p = JSON.parse(content);
+    if(!p || !Array.isArray(p.items)) throw new Error();
+    S = p;
+    save();render();
+    $('#cld_modal').hidden = true;
+    toast('✅ Progresso Carregado!');
+  } catch(e) {
+    toast('❌ Falha ao baixar do GitHub');
+  }
+};
+
+load();render();
+</script></body></html>
