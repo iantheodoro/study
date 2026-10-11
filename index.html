@@ -231,16 +231,19 @@ textarea{
 <!-- Modal GitHub Cloud Sync -->
 <div class="ov" id="cld_modal" hidden><div class="sheet">
  <h2 style="margin:0;font-size:14px;font-family:'Press Start 2P',cursive;color:var(--ac)">☁️ GITHUB CLOUD SYNC</h2>
- <p style="font-size:15px;line-height:1.2">Sincronize seu progresso na sua conta do GitHub via Gist privado.</p>
+ <p style="font-size:15px;line-height:1.2">Cole o token <b>uma vez</b> neste aparelho. Depois disso o progresso é baixado ao abrir e enviado automaticamente a cada mudança (Gist privado).</p>
  <div style="display:grid;gap:8px;text-align:left">
    <label style="font-size:14px">GitHub Token (PAT com escopo 'gist'):</label>
-   <input type="password" id="gh_token" placeholder="ghp_xxxxxxxxxxxx">
-   <label style="font-size:14px">Gist ID (gerado automaticamente após 1º upload):</label>
-   <input id="gh_gist_id" placeholder="(vazio para criar novo)">
+   <input type="password" id="gh_token" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
+   <div id="gh_status" style="font-size:14px;opacity:.85"></div>
  </div>
  <div class="row c" style="margin-top:6px">
-   <button class="pri" id="gh_push">⬆️ Enviar Nuvem</button>
-   <button class="sec" id="gh_pull">⬇️ Baixar Nuvem</button>
+   <button class="pri" id="gh_connect">🔗 Conectar</button>
+   <button class="ghost" id="gh_off">🔌 Desconectar</button>
+ </div>
+ <div class="row c">
+   <button class="sec" id="gh_push">⬆️ Forçar envio</button>
+   <button class="sec" id="gh_pull">⬇️ Forçar download</button>
  </div>
  <div class="row c">
    <button class="ghost" id="gh_close">Fechar</button>
@@ -591,13 +594,14 @@ function toast(m){
   document.body.appendChild(d);
   setTimeout(()=>d.remove(),1400);
 }
-function save(){let ok=true;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){ok=false}$('#warn').hidden=ok}
+function persist(){let ok=true;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){ok=false}$('#warn').hidden=ok;return ok}
+function save(){S.ts=Date.now();persist();scheduleSync()}
 
 function seed(){
   S={next:1,items:[]};
   for(const a in DATA) DATA[a].forEach(t=>S.items.push({id:S.next++,c:'cron',a,t,d:0}));
   for(const a in CAPITULOS_DATA) CAPITULOS_DATA[a].forEach(t=>S.items.push({id:S.next++,c:'cap',a,t,d:0}));
-  save();
+  persist();
 }
 
 function load(){
@@ -739,82 +743,148 @@ $('#bkr').onclick=()=>{
   }catch(e){toast('❌ Save corrompido ou inválido');}
 };
 
-/* Sincronização via GitHub Gist */
-const GH_TOKEN_KEY = 'gh_sync_token';
-const GH_GIST_KEY = 'gh_sync_gist_id';
+/* ===== Sincronização automática via GitHub Gist ===== */
+const GH_TOKEN_KEY='gh_sync_token', GH_GIST_KEY='gh_sync_gist_id';
+const GH_DESC='Savegame - Quest de Estudos RPG', GH_FILE='quest_save.json';
+let syncing=false, again=false, syncTimer=null, authBad=false;
 
-$('#bkcld').onclick = () => {
-  $('#gh_token').value = localStorage.getItem(GH_TOKEN_KEY) || '';
-  $('#gh_gist_id').value = localStorage.getItem(GH_GIST_KEY) || '';
-  $('#cld_modal').hidden = false;
-};
-$('#gh_close').onclick = () => { $('#cld_modal').hidden = true; };
+const ghToken=()=>localStorage.getItem(GH_TOKEN_KEY)||'';
+const ghHead=t=>({'Authorization':'Bearer '+t,'Accept':'application/vnd.github+json'});
+const validSave=p=>!!p&&Array.isArray(p.items);
+const doneCount=x=>x.items.filter(i=>i.d).length;
+const gerr=m=>{const e=new Error(m);return e};
 
-$('#gh_push').onclick = async () => {
-  const token = $('#gh_token').value.trim();
-  let gistId = $('#gh_gist_id').value.trim();
-  if(!token) return toast('⚠️ Insira seu GitHub Token!');
-  localStorage.setItem(GH_TOKEN_KEY, token);
+function setCloud(s){
+  $('#bkcld').textContent='☁️ CLOUD'+({ok:' ✓',busy:' …',err:' ⚠️'}[s]||'');
+  const st=$('#gh_status');
+  if(st) st.textContent=!ghToken()?'Status: desconectado':
+    ({ok:'Status: sincronizado ✓',busy:'Status: sincronizando…',err:authBad?'Status: token inválido ou sem escopo gist':'Status: sem conexão (tenta de novo sozinho)'}[s]||'Status: conectado');
+}
 
-  const payload = {
-    description: "Savegame - Quest de Estudos RPG",
-    public: false,
-    files: {
-      "quest_save.json": { content: JSON.stringify(S) }
+async function ghFetch(url,t,opt){
+  const r=await fetch(url,Object.assign({headers:ghHead(t)},opt||{}));
+  if(r.status===401||r.status===403) throw gerr('auth');
+  return r;
+}
+
+async function findGist(t){
+  const saved=localStorage.getItem(GH_GIST_KEY);
+  if(saved) return saved;
+  const r=await ghFetch('https://api.github.com/gists?per_page=100',t);
+  if(!r.ok) throw gerr('net');
+  const g=(await r.json()).find(g=>g.description===GH_DESC&&g.files&&g.files[GH_FILE]);
+  if(g){localStorage.setItem(GH_GIST_KEY,g.id);return g.id}
+  return '';
+}
+
+async function fetchRemote(t,id){
+  const r=await ghFetch('https://api.github.com/gists/'+id,t);
+  if(r.status===404){localStorage.removeItem(GH_GIST_KEY);throw gerr('net')}
+  if(!r.ok) throw gerr('net');
+  const f=(await r.json()).files[GH_FILE];
+  if(!f) return null;
+  let c=f.content;
+  if(f.truncated){c=await (await fetch(f.raw_url)).text()}
+  try{const p=JSON.parse(c);return validSave(p)?p:null}catch(e){return null}
+}
+
+async function pushCloud(t,id){
+  const body={description:GH_DESC,files:{[GH_FILE]:{content:JSON.stringify(S)}}};
+  if(!id) body.public=false;
+  const r=await ghFetch(id?'https://api.github.com/gists/'+id:'https://api.github.com/gists',t,
+    {method:id?'PATCH':'POST',body:JSON.stringify(body)});
+  if(!r.ok) throw gerr('net');
+  localStorage.setItem(GH_GIST_KEY,(await r.json()).id);
+}
+
+/* Compara local x nuvem: o mais recente vence */
+async function syncNow(){
+  const t=ghToken();
+  if(!t||authBad) return;
+  if(syncing){again=true;return}
+  syncing=true;setCloud('busy');
+  try{
+    const id=await findGist(t);
+    const p=id?await fetchRemote(t,id):null;
+    if(!p){await pushCloud(t,id)}
+    else{
+      const rt=p.ts||0, lt=S.ts||0;
+      const pull=rt>lt||(rt===lt&&rt===0&&doneCount(p)>doneCount(S));
+      const push=lt>rt||(rt===lt&&rt===0&&doneCount(S)>doneCount(p));
+      if(pull){S=p;persist();render();toast('☁️ Progresso atualizado')}
+      else if(push){await pushCloud(t,id)}
     }
-  };
+    setCloud('ok');
+  }catch(e){
+    if(e.message==='auth') authBad=true;
+    setCloud('err');
+  }
+  syncing=false;
+  if(again){again=false;syncNow()}
+}
 
-  try {
+function scheduleSync(){
+  if(!ghToken()) return;
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(syncNow,2000);
+}
+
+$('#bkcld').onclick=()=>{
+  $('#gh_token').value=ghToken();
+  setCloud(ghToken()?(authBad?'err':'ok'):'');
+  $('#cld_modal').hidden=false;
+};
+$('#gh_close').onclick=()=>{$('#cld_modal').hidden=true};
+
+$('#gh_connect').onclick=()=>{
+  const t=$('#gh_token').value.trim();
+  if(!t) return toast('⚠️ Insira seu GitHub Token!');
+  if(t!==ghToken()) localStorage.removeItem(GH_GIST_KEY);
+  localStorage.setItem(GH_TOKEN_KEY,t);
+  authBad=false;
+  $('#cld_modal').hidden=true;
+  toast('🔗 Conectando...');
+  syncNow();
+};
+
+$('#gh_off').onclick=()=>{
+  localStorage.removeItem(GH_TOKEN_KEY);
+  localStorage.removeItem(GH_GIST_KEY);
+  $('#gh_token').value='';
+  authBad=false;
+  setCloud('');
+  toast('🔌 Desconectado');
+};
+
+$('#gh_push').onclick=async()=>{
+  const t=ghToken();
+  if(!t) return toast('⚠️ Conecte o token primeiro');
+  try{
     toast('☁️ Enviando save...');
-    const url = gistId ? `https://api.github.com/gists/${gistId}` : `https://api.github.com/gists`;
-    const res = await fetch(url, {
-      method: gistId ? 'PATCH' : 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.github+json'
-      },
-      body: JSON.stringify(payload)
-    });
-    if(!res.ok) throw new Error();
-    const data = await res.json();
-    gistId = data.id;
-    $('#gh_gist_id').value = gistId;
-    localStorage.setItem(GH_GIST_KEY, gistId);
-    toast('✅ Salvo no GitHub Cloud!');
-  } catch(e) {
-    toast('❌ Falha ao enviar para o GitHub');
-  }
+    S.ts=Date.now();persist();
+    await pushCloud(t,await findGist(t));
+    setCloud('ok');toast('✅ Salvo no GitHub Cloud!');
+  }catch(e){toast('❌ Falha ao enviar para o GitHub')}
 };
 
-$('#gh_pull').onclick = async () => {
-  const token = $('#gh_token').value.trim();
-  const gistId = $('#gh_gist_id').value.trim();
-  if(!token || !gistId) return toast('⚠️ Preencha Token e Gist ID!');
-  localStorage.setItem(GH_TOKEN_KEY, token);
-  localStorage.setItem(GH_GIST_KEY, gistId);
-
-  try {
+$('#gh_pull').onclick=async()=>{
+  const t=ghToken();
+  if(!t) return toast('⚠️ Conecte o token primeiro');
+  try{
     toast('☁️ Baixando save...');
-    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.github+json'
-      }
-    });
-    if(!res.ok) throw new Error();
-    const data = await res.json();
-    const content = data.files['quest_save.json']?.content;
-    if(!content) throw new Error();
-    const p = JSON.parse(content);
-    if(!p || !Array.isArray(p.items)) throw new Error();
-    S = p;
-    save();render();
-    $('#cld_modal').hidden = true;
-    toast('✅ Progresso Carregado!');
-  } catch(e) {
-    toast('❌ Falha ao baixar do GitHub');
-  }
+    const id=await findGist(t);
+    const p=id?await fetchRemote(t,id):null;
+    if(!p) return toast('⚠️ Nenhum save encontrado na nuvem');
+    S=p;persist();render();
+    $('#cld_modal').hidden=true;
+    setCloud('ok');toast('✅ Progresso Carregado!');
+  }catch(e){toast('❌ Falha ao baixar do GitHub')}
 };
 
-load();render();
+/* Sincroniza ao voltar para a aba, ao reconectar à internet e a cada 1 min */
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow()});
+window.addEventListener('online',syncNow);
+setInterval(()=>{if(!document.hidden)syncNow()},60000);
+
+load();render();setCloud(ghToken()?'busy':'');syncNow();
 </script></body></html>
