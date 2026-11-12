@@ -200,6 +200,7 @@ textarea{
       <option value="p">⏳ Pendentes</option>
       <option value="f">🏆 Concluídas</option>
     </select>
+    <select id="rl" aria-label="Relevância" hidden></select>
   </div>
   <div class="row">
     <input id="nt" placeholder="⚔️ Nova missão nesta categoria..." aria-label="Novo item">
@@ -1021,7 +1022,7 @@ const AC = {
 };
 
 const KEY='estudos-mc-v3';
-let S,cat='cron',area='*',st='all',q='',cur=null,tm;
+let S,cat='cron',area='*',st='all',q='',rl='*',cur=null,tm;
 const norm=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -1085,8 +1086,17 @@ function render(){
  $('#na').innerHTML=selectAreas.map(a=>`<option value="${esc(a)}">${esc(a)}</option>`).join('');
  if(area!=='*' && selectAreas.includes(area)) $('#na').value=area;
 
+ const relBase=base.filter(i=>area==='*'||i.a===area);
+ if(cat!=='cron') rl='*';
+ $('#rl').hidden=cat!=='cron';
+ $('#rl').innerHTML='<option value="*">🎯 Todas as relevâncias</option>'+['D','A','M','B','N'].map(k=>{
+   const b=relBase.filter(i=>relOf(i)===k);
+   return `<option value="${k}">${REL_INFO[k][1]} ${REL_INFO[k][0]} (${b.filter(i=>i.d).length}/${b.length})</option>`;
+ }).join('');
+ $('#rl').value=rl;
+
  const nq=norm(q);
- const L=base.filter(i=>(area==='*'||i.a===area)&&(st==='all'||(st==='p')===!i.d)&&(!nq||norm(i.t).includes(nq)));
+ const L=base.filter(i=>(area==='*'||i.a===area)&&(st==='all'||(st==='p')===!i.d)&&(rl==='*'||relOf(i)===rl)&&(!nq||norm(i.t).includes(nq)));
  
  $('#list').innerHTML=L.length?L.map(i=>`
    <li class="it${i.d?' d':''}" tabindex="0" role="checkbox" aria-checked="${!!i.d}" data-id="${i.id}" style="--ac:${AC[i.a]||'#888'}${relOf(i)?`;--rc:${REL_INFO[relOf(i)][2]}`:''}"${relOf(i)?` data-r="${relOf(i)}"`:''}>
@@ -1107,7 +1117,7 @@ function flip(it){
 
 document.addEventListener('click',e=>{
  const t=e.target;let b;
- if(b=t.closest('[data-cat]')){cat=b.dataset.cat;area='*';render();return}
+ if(b=t.closest('[data-cat]')){cat=b.dataset.cat;area='*';rl='*';render();return}
  if(b=t.closest('[data-area]')){area=b.dataset.area;render();return}
  const li=t.closest('.it');if(!li)return;
  const id=+li.dataset.id,x=t.closest('.x');
@@ -1132,6 +1142,7 @@ $('#list').addEventListener('keydown',e=>{
 
 $('#q').oninput=e=>{q=e.target.value;render()};
 $('#st').onchange=e=>{st=e.target.value;render()};
+$('#rl').onchange=e=>{rl=e.target.value;render()};
 
 function add(){
   const t=$('#nt').value.trim();if(!t)return;
@@ -1143,7 +1154,7 @@ $('#add').onclick=add;
 $('#nt').onkeydown=e=>{if(e.key==='Enter')add()};
 
 function roll(){
- const sc=$('#sc').value,P=S.items.filter(i=>(sc==='all'||i.c===cat)&&!i.d&&(area==='*'||i.a===area));
+ const sc=$('#sc').value,P=S.items.filter(i=>(sc==='all'||i.c===cat)&&!i.d&&(area==='*'||i.a===area)&&(rl==='*'||relOf(i)===rl));
  if(!P.length){toast('🎉 Todas as Quests foram zeradas!');return false}
  $('#loot').hidden=false;$('#lb').hidden=true;$('#la').textContent='🎲 SORTEANDO QUEST...';
  clearInterval(tm);let n=0;
